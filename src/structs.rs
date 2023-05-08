@@ -4,11 +4,11 @@ use std::cell::RefCell;
 
 pub struct Edge<'a> {
     pub weight: f32,
-    pub dest: Rc<RefCell<&'a mut GraphNode<'a>>>,
+    pub dest: Rc<RefCell<GraphNode<'a>>>,
 }
 
 impl<'a> Edge<'a> {
-    pub fn new(weight: f32, dest: &Rc<RefCell<&'a mut GraphNode<'a>>>) -> Self {
+    pub fn new(weight: f32, dest: &Rc<RefCell<GraphNode<'a>>>) -> Self {
         Edge {
             weight: weight,
             dest: Rc::clone(dest),
@@ -16,10 +16,10 @@ impl<'a> Edge<'a> {
     }
 }
 
-pub struct UndirectedEdge<'a> {
-    std: Edge<'a>,
-    dts: Edge<'a>,
-}
+// pub struct UndirectedEdge<'a> {
+//     std: Edge<'a>,
+//     dts: Edge<'a>,
+// }
 
 pub struct GraphNode<'a> {
     pub name: String,
@@ -36,11 +36,11 @@ impl<'a> GraphNode<'a>{
         }
     }
 
-    pub fn move_node(&mut self, x: f32, y: f32, z: f32) {
-        self.pos.x = x;
-        self.pos.y = y;
-        self.pos.z = z;
-    }
+    // pub fn move_node(&mut self, x: f32, y: f32, z: f32) {
+    //     self.pos.x = x;
+    //     self.pos.y = y;
+    //     self.pos.z = z;
+    // }
 
     pub fn add_edge(&mut self, edge: Edge<'a>) {
         self.edges.push(edge);
@@ -68,7 +68,7 @@ impl std::cmp::PartialEq for GraphNode<'_> {
 }
 
 pub struct Graph<'a> {
-    pub nodes: Vec<Rc<RefCell<&'a mut GraphNode<'a>>>>,
+    pub nodes: Vec<Rc<RefCell<GraphNode<'a>>>>,
     pub edges: Vec<Edge<'a>>,
 }
 
@@ -80,19 +80,18 @@ impl<'a> Graph<'a> {
         }
     }
 
-    pub fn build(nodes: Vec<&'a mut GraphNode<'a>>, edges: Vec<Edge<'a>>) -> Self{
-        let nodes: Vec<Rc<RefCell<&mut GraphNode<'a>>>> = nodes.into_iter().map(|n| Rc::new(RefCell::new(n))).collect();
+    pub fn build(nodes: Vec<GraphNode<'a>>, edges: Vec<Edge<'a>>) -> Self{
         Graph {
-            nodes: nodes,
+            nodes: nodes.into_iter().map(|n| Rc::new(RefCell::new(n))).collect(),
             edges: edges,
         }
     }
 
-    pub fn add_node(&mut self, node: &'a mut GraphNode<'a>) {
+    pub fn add_node(&mut self, node: GraphNode<'a>) {
         self.nodes.push(Rc::new(RefCell::new(node)));
     }
 
-    fn add_edge_between_points(&mut self, src_point: &Point, dst_point: &Point) {
+    pub fn add_edge_between_points(&mut self, src_point: &Point, dst_point: &Point) {
         let src = self.nearest_node(src_point, None).expect("Error finding source node");
         let dst = self.nearest_node(dst_point, None).expect("Error finding destination node");
         let weight = dist(&src.borrow().pos, &dst.borrow().pos);
@@ -100,13 +99,16 @@ impl<'a> Graph<'a> {
         dst.borrow_mut().add_edge(Edge::new(weight, &src));
     }
 
-    fn add_edge_between_nodes(&mut self, src_node: &Rc<RefCell<&'a mut GraphNode<'a>>>, dst_node: &Rc<RefCell<&'a mut GraphNode<'a>>>) {
+    pub fn add_edge_between_nodes(&mut self, src_idx: usize, dst_idx: usize) {
+        println!("Connecting Nodes {} and {}", src_idx, dst_idx);
+        let src_node = self.nodes.get(src_idx).expect("Index Out Of Bounds For Source Node");
+        let dst_node = self.nodes.get(dst_idx).expect("Index Out Of Bounds For Destination Node");
         let weight = dist(&src_node.borrow().pos, &dst_node.borrow().pos);
         src_node.borrow_mut().add_edge(Edge::new(weight, &dst_node));
         dst_node.borrow_mut().add_edge(Edge::new(weight, &src_node));
     }
 
-    fn nearest_node(&self, p: &Point, threshold: Option<f32>) -> Option<&Rc<RefCell<&'a mut GraphNode<'a>>>> {
+    fn nearest_node(&self, p: &Point, threshold: Option<f32>) -> Option<&Rc<RefCell<GraphNode<'a>>>> {
         let threshold = threshold.unwrap_or(std::f32::EPSILON);
         for node in &self.nodes {
             if dist(&node.borrow().pos, p) < threshold {
@@ -123,6 +125,16 @@ impl<'a> Graph<'a> {
             v.push(format!("{}: ({}, {}, {})", n.name, n.pos.x, n.pos.y, n.pos.z));
         }
         v
+    }
+}
+
+impl std::fmt::Debug for Graph<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut res = f.debug_struct("Graph");
+        for (i, node) in self.nodes.iter().enumerate() {
+            res.field(format!("Node {}", i).as_str(), node);
+        }
+        res.finish()
     }
 }
 
